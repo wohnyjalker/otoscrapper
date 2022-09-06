@@ -28,19 +28,6 @@
 #
 # wiecej od tego uzytkownika:
 # https://www.otomoto.pl/api/v1/recommenders/ad/6100851901
-import sre_parse
-
-
-# from requests import get
-#
-#
-# r = get("https://www.otomoto.pl/osobowe/bmw/m2?search%5Border%5D=created_at_first%3Adesc&page=1")
-# if r.status_code != 200:
-#     print(f"{r.status_code} != 200")
-#     exit(1)
-# tree = fromstring(r.text)
-# pages_count = len(tree.xpath(".//ul[contains(@class, 'pagination-list')]/li/a/span"))
-# print(pages_count)
 
 import asyncio
 import aiohttp
@@ -57,30 +44,27 @@ db = dict()
 ssl = True
 
 
-def concatenate_lists(l: Union[list, tuple]) -> list:
-    return list(itertools.chain.from_iterable(l))
+def concatenate_lists(list_: Union[list, tuple]) -> list:
+    return list(itertools.chain.from_iterable(list_))
 
 
 def time_now() -> str:
     return datetime.strftime(datetime.utcnow(), "%H:%M:%S")
 
 
-async def get_pages_count(url: str) -> int:
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, ssl=ssl) as r:
-            print(r.status)
-            text = await r.text()
-            return len(fromstring(text).xpath(".//ul[contains(@class, 'pagination-list')]/li/a/span"))
+async def get_pages_count(session: aiohttp.ClientSession, url: str) -> int:
+    async with session.get(url, ssl=ssl) as r:
+        text = await r.text()
+        return len(fromstring(text).xpath(".//ul[contains(@class, 'pagination-list')]/li/a/span"))
 
 
-async def get_ids(url: str, pages_count: int) -> list:
+async def get_ids(session: aiohttp.ClientSession, url: str, pages_count: int) -> list:
     tasks = list()
-    async with aiohttp.ClientSession() as session:
-        for page in range(1, pages_count + 1):
-            tasks.append(get_ids_from_page(session, f"{url}&page={page}"))
+    for page in range(1, pages_count + 1):
+        tasks.append(get_ids_from_page(session, f"{url}&page={page}"))
 
-        results = await asyncio.gather(*tasks)
-        return concatenate_lists(results)
+    results = await asyncio.gather(*tasks)
+    return concatenate_lists(results)
 
 
 async def get_ids_from_page(session: aiohttp.ClientSession, page_url: str) -> list:
@@ -90,14 +74,13 @@ async def get_ids_from_page(session: aiohttp.ClientSession, page_url: str) -> li
         return [a.attrib["id"] for a in fromstring(html).xpath("//article[@id]") if a.attrib["id"].isnumeric()]
 
 
-async def get_advertisements_data(ids: list) -> list:
+async def get_advertisements_data(session: aiohttp.ClientSession, ids: list) -> list:
     tasks = list()
-    async with aiohttp.ClientSession() as session:
-        for id_ in ids:
-            tasks.append(get_single_ad_data(session, id_))
+    for id_ in ids:
+        tasks.append(get_single_ad_data(session, id_))
 
-        results = await asyncio.gather(*tasks)
-        return results
+    results = await asyncio.gather(*tasks)
+    return results
 
 
 async def get_single_ad_data(session: aiohttp.ClientSession, id_: str) -> dict:
@@ -107,16 +90,40 @@ async def get_single_ad_data(session: aiohttp.ClientSession, id_: str) -> dict:
         return json
 
 
-async def main():
+async def gather_ads_data(url: str) -> int:
     started_at = time_now()
-    pages = await get_pages_count(url_with_query)
-    ids = await get_ids(url_with_query, pages)
-    print(ids)
-    results = await get_advertisements_data(ids)
-    print(results)
-    print(f'started ad started at {started_at} finished at {time_now()}')
-    print(len(results))
+    async with aiohttp.ClientSession() as session:
+        pages_count = await get_pages_count(session, url)
+        ids = await get_ids(session, url, pages_count)
+        results = await get_advertisements_data(session, ids)
+        print(results)
+    print(f'Started at {started_at} finished at {time_now()}')
+    return len(results)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(gather_ads_data(url_with_query))
+    # url1 = "https://www.otomoto.pl/osobowe/bmw/i3?search%5Border%5D=created_at_first:desc"
+    # url2 = "https://www.otomoto.pl/osobowe/bmw/m2?search%5Border%5D=created_at_first:desc"
+    # loop = asyncio.get_event_loop()
+    # loop.create_future()
+    # loop.run_until_complete(gather_ads_data(url2))
+    # f1 = asyncio.run_coroutine_threadsafe(gather_ads_data(url1), loop)
+    # f2 = asyncio.run_coroutine_threadsafe(gather_ads_data(url2), loop)
+    # print(f1.result())
+    # loop.create_task(gather_ads_data(url2), name="url2")
+    # loop.run_forever()
+    # loop.run_forever()
+    # loop = asyncio.get_event_loop()
+    # loop.create_task(gather_ads_data(url2), name="url2")
+    # asyncio.run(main())
+    # asyncio.run_coroutine_threadsafe(gather_ads_data(url1), loop)
+    # asyncio.run_coroutine_threadsafe(gather_ads_data(url2), loop)
+    # loop.run_until_complete()
+    # loop = asyncio.get_event_loop()
+    # task = asyncio.ensure_future(gather_ads_data(url1))
+    # task.add_done_callback(done_ome())
+    # # task = add_success_callback(task, my_callback)
+    # response = loop.run_until_complete(task)
+    # print("response:", response)
+    # loop.close()
