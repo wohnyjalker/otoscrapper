@@ -1,4 +1,4 @@
-# from aiohttp import web
+from aiohttp import web
 
 #
 # async def hello(request):
@@ -31,10 +31,10 @@
 
 import asyncio
 import aiohttp
-from datetime import datetime
 import itertools
 from lxml.html import fromstring
 from typing import Union
+import time
 
 
 # url = "https://www.otomoto.pl/osobowe/bmw/m2?search%5Border%5D=created_at_first%3Adesc&page=1"
@@ -46,10 +46,6 @@ ssl = True
 
 def concatenate_lists(list_: Union[list, tuple]) -> list:
     return list(itertools.chain.from_iterable(list_))
-
-
-def time_now() -> str:
-    return datetime.strftime(datetime.utcnow(), "%H:%M:%S")
 
 
 async def get_pages_count(session: aiohttp.ClientSession, url: str) -> int:
@@ -69,7 +65,7 @@ async def get_ids(session: aiohttp.ClientSession, url: str, pages_count: int) ->
 
 async def get_ids_from_page(session: aiohttp.ClientSession, page_url: str) -> list:
     async with session.get(page_url, ssl=ssl) as r:
-        print(r.status, page_url)
+        # print(r.status, page_url)
         html = await r.text()
         return [a.attrib["id"] for a in fromstring(html).xpath("//article[@id]") if a.attrib["id"].isnumeric()]
 
@@ -85,45 +81,79 @@ async def get_advertisements_data(session: aiohttp.ClientSession, ids: list) -> 
 
 async def get_single_ad_data(session: aiohttp.ClientSession, id_: str) -> dict:
     async with session.get(ad_json_url.format(id_), ssl=ssl) as r:
-        print(r.status, id_)
+        # print(r.status, id_)
         json = await r.json()
         return json
 
 
 async def gather_ads_data(url: str) -> int:
-    started_at = time_now()
+    started_at = time.monotonic()
     async with aiohttp.ClientSession() as session:
         pages_count = await get_pages_count(session, url)
         ids = await get_ids(session, url, pages_count)
         results = await get_advertisements_data(session, ids)
         print(results)
-    print(f'Started at {started_at} finished at {time_now()}')
-    return len(results)
+    print(f"Took: {time.monotonic() - started_at}")
+    return results
+    # return len(results)
 
 
-if __name__ == "__main__":
-    asyncio.run(gather_ads_data(url_with_query))
-    # url1 = "https://www.otomoto.pl/osobowe/bmw/i3?search%5Border%5D=created_at_first:desc"
-    # url2 = "https://www.otomoto.pl/osobowe/bmw/m2?search%5Border%5D=created_at_first:desc"
-    # loop = asyncio.get_event_loop()
-    # loop.create_future()
-    # loop.run_until_complete(gather_ads_data(url2))
-    # f1 = asyncio.run_coroutine_threadsafe(gather_ads_data(url1), loop)
-    # f2 = asyncio.run_coroutine_threadsafe(gather_ads_data(url2), loop)
-    # print(f1.result())
-    # loop.create_task(gather_ads_data(url2), name="url2")
-    # loop.run_forever()
-    # loop.run_forever()
-    # loop = asyncio.get_event_loop()
-    # loop.create_task(gather_ads_data(url2), name="url2")
-    # asyncio.run(main())
-    # asyncio.run_coroutine_threadsafe(gather_ads_data(url1), loop)
-    # asyncio.run_coroutine_threadsafe(gather_ads_data(url2), loop)
-    # loop.run_until_complete()
-    # loop = asyncio.get_event_loop()
-    # task = asyncio.ensure_future(gather_ads_data(url1))
-    # task.add_done_callback(done_ome())
-    # # task = add_success_callback(task, my_callback)
-    # response = loop.run_until_complete(task)
-    # print("response:", response)
-    # loop.close()
+# if __name__ == "__main__":
+#     asyncio.run(gather_ads_data("https://www.otomoto.pl/osobowe/bmw/i3?search%5Border%5D=created_at_first:desc"))
+#     url1 = "https://www.otomoto.pl/osobowe/bmw/i3?search%5Border%5D=created_at_first:desc"
+#     url2 = "https://www.otomoto.pl/osobowe/bmw/m2?search%5Border%5D=created_at_first:desc"
+# async def hello(request):
+#     return web.Response(text="Hello, world")
+
+
+# async def dupa(request):
+#     loop = asyncio.get_event_loop()
+#     print(loop)
+#     task = await loop.create_task(gather_ads_data("https://www.otomoto.pl/osobowe/bmw/i3?search%5Border%5D=created_at_first:desc"))
+#     return web.json_response(task)
+
+
+async def handle_get(request):
+    loop = asyncio.get_event_loop()
+    url = f"https://www.otomoto.pl{request.rel_url}"
+    print(f"Proceeding {url}")
+    data = await loop.create_task(gather_ads_data(url))
+    return web.json_response(data)
+
+
+async def dupa(request):
+    pass
+
+
+app = web.Application()
+app.add_routes([web.post("/", dupa), web.get("/osobowe/{brand}/{model}", handle_get)])
+
+web.run_app(app)
+
+
+# queue = asyncio.Queue(maxsize=1)
+# queue.put_nowait(gather_ads_data(url1))
+
+
+# loop = asyncio.get_event_loop()
+# loop.create_future()
+# loop.run_until_complete(gather_ads_data(url2))
+# f1 = asyncio.run_coroutine_threadsafe(gather_ads_data(url1), loop)
+# f2 = asyncio.run_coroutine_threadsafe(gather_ads_data(url2), loop)
+# print(f1.result())
+# loop.create_task(gather_ads_data(url2), name="url2")
+# loop.run_forever()
+# loop.run_forever()
+# loop = asyncio.get_event_loop()
+# loop.create_task(gather_ads_data(url2), name="url2")
+# asyncio.run(main())
+# asyncio.run_coroutine_threadsafe(gather_ads_data(url1), loop)
+# asyncio.run_coroutine_threadsafe(gather_ads_data(url2), loop)
+# loop.run_until_complete()
+# loop = asyncio.get_event_loop()
+# task = asyncio.ensure_future(gather_ads_data(url1))
+# task.add_done_callback(done_ome())
+# # task = add_success_callback(task, my_callback)
+# response = loop.run_until_complete(task)
+# print("response:", response)
+# loop.close()
