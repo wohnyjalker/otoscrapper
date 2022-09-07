@@ -92,5 +92,4 @@ async def handle_get(request):
 if __name__ == "__main__":
     app = web.Application()
     app.add_routes([web.get("/osobowe/{brand}/{model}", handle_get)])
-
     web.run_app(app)
