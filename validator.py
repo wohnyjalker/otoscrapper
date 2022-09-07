@@ -11,19 +11,19 @@ urls = [
 ]
 
 
-async def get_data(url):
+async def get_data(session: aiohttp.ClientSession, url: str) -> dict:
     started_at = time.monotonic()
-    async with aiohttp.ClientSession() as session:
-        async with session.get("http://" + url) as r:
-            print(r.status)
-            data = await r.json()
-    print(f"Url {url} took {time.monotonic() - started_at}")
+    async with session.get(f"http://{url}") as r:
+        data = await r.json()
+    print(f"{r.status} {time.monotonic() - started_at} {url}")
     return data
 
 
-async def validate():
-    tasks = [get_data(url) for url in urls]
-    await asyncio.gather(*tasks)
+async def validate() -> None:
+    async with aiohttp.ClientSession() as session:
+        tasks = [get_data(session, url) for url in urls]
+        output = await asyncio.gather(*tasks)
+        print(f"Collected: {sum(map(len, output))} items")
 
 
 if __name__ == "__main__":
