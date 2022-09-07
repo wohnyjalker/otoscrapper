@@ -13,18 +13,15 @@
 # https://www.otomoto.pl/api/v1/recommenders/ad/6100851901
 
 import asyncio
-from aiohttp import ClientSession, web
 import itertools
-from lxml.html import fromstring
-from typing import Union, Tuple
 import time
+from typing import Union, Tuple
+from aiohttp import ClientSession, web
+from lxml.html import fromstring
 
 
-# url = "https://www.otomoto.pl/osobowe/bmw/m2?search%5Border%5D=created_at_first%3Adesc&page=1"
-url_with_query = "https://www.otomoto.pl/osobowe/bmw/m2?search%5Border%5D=created_at_first:desc"
-ad_json_url = "https://www.otomoto.pl/api/v1/ad/{}/"
-db = dict()
-ssl = True
+AD_JSON_URL = "https://www.otomoto.pl/api/v1/ad/{}/"
+SSL = True
 
 
 def concatenate_lists(list_: Union[list, tuple]) -> list:
@@ -32,8 +29,8 @@ def concatenate_lists(list_: Union[list, tuple]) -> list:
 
 
 async def get_pages_count(session: ClientSession, url: str) -> int:
-    async with session.get(url, ssl=ssl) as r:
-        text = await r.text()
+    async with session.get(url, ssl=SSL) as response:
+        text = await response.text()
         return len(fromstring(text).xpath(
             ".//ul[contains(@class, 'pagination-list')]/li/a/span"))
 
@@ -48,9 +45,9 @@ async def get_ids(session: ClientSession, url: str, pages_count: int) -> list:
 
 
 async def get_ids_from_page(session: ClientSession, page_url: str) -> list:
-    async with session.get(page_url, ssl=ssl) as r:
+    async with session.get(page_url, ssl=SSL) as response:
         # print(r.status, page_url)
-        html = await r.text()
+        html = await response.text()
         return [a.attrib["id"] for a in fromstring(html).xpath(
             "//article[@id]") if a.attrib["id"].isnumeric()]
 
@@ -65,9 +62,9 @@ async def get_advertisements_data(session: ClientSession, ids: list) -> tuple:
 
 
 async def get_single_ad_data(session: ClientSession, id_: str) -> dict:
-    async with session.get(ad_json_url.format(id_), ssl=ssl) as r:
+    async with session.get(AD_JSON_URL.format(id_), ssl=SSL) as response:
         # print(r.status, id_)
-        json = await r.json()
+        json = await response.json()
         return json
 
 
