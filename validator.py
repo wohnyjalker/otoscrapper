@@ -8,6 +8,7 @@ urls = [
     "localhost:8080/osobowe/bmw/z3",
     "localhost:8080/osobowe/bmw/m3",
     "localhost:8080/osobowe/bmw/m4",
+    # "localhost:8080/osobowe/bmw/asdf",
 ]
 
 
@@ -15,7 +16,7 @@ async def get_data(session: aiohttp.ClientSession, url: str) -> dict:
     started_at = time.monotonic()
     async with session.get(f"http://{url}") as r:
         data = await r.json()
-    print(f"{r.status} {time.monotonic() - started_at} {url}")
+    print(f"{r.status} {time.monotonic() - started_at} {url} {len(data)}")
     return data
 
 

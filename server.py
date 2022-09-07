@@ -31,8 +31,8 @@ def concatenate_lists(list_: Union[list, tuple]) -> list:
 async def get_pages_count(session: ClientSession, url: str) -> int:
     async with session.get(url, ssl=SSL) as response:
         text = await response.text()
-        return len(fromstring(text).xpath(
-            ".//ul[contains(@class, 'pagination-list')]/li/a/span"))
+        return int(fromstring(text).xpath(
+            ".//ul[contains(@class, 'pagination-list')]/li/a/span")[-1].text)
 
 
 async def get_ids(session: ClientSession, url: str, pages_count: int) -> list:
@@ -73,6 +73,7 @@ async def gather_ads_data(url: str) -> Tuple[dict]:
     async with ClientSession() as session:
         pages_count = await get_pages_count(session, url)
         ids = await get_ids(session, url, pages_count)
+        print(f"For {url} collected {len(ids)} ids")
         results = await get_advertisements_data(session, ids)
     print(f"Took: {time.monotonic() - started_at}")
     return results
@@ -80,7 +81,8 @@ async def gather_ads_data(url: str) -> Tuple[dict]:
 
 async def handle_get(request):
     loop = asyncio.get_event_loop()
-    url = f"https://www.otomoto.pl{request.rel_url}"
+    # url = f"https://www.otomoto.pl{request.rel_url}"
+    url = f"https://www.otomoto.pl{request.path}"
     print(f"Proceeding {url}")
     data = await loop.create_task(gather_ads_data(url))
     return web.json_response(data)
