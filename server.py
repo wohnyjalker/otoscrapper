@@ -16,7 +16,7 @@ import asyncio
 from aiohttp import ClientSession, web
 import itertools
 from lxml.html import fromstring
-from typing import Union, List
+from typing import Union, Tuple
 import time
 
 
@@ -55,7 +55,7 @@ async def get_ids_from_page(session: ClientSession, page_url: str) -> list:
             "//article[@id]") if a.attrib["id"].isnumeric()]
 
 
-async def get_advertisements_data(session: ClientSession, ids: list) -> list:
+async def get_advertisements_data(session: ClientSession, ids: list) -> tuple:
     tasks = list()
     for id_ in ids:
         tasks.append(get_single_ad_data(session, id_))
@@ -71,7 +71,7 @@ async def get_single_ad_data(session: ClientSession, id_: str) -> dict:
         return json
 
 
-async def gather_ads_data(url: str) -> List[dict]:
+async def gather_ads_data(url: str) -> Tuple[dict]:
     started_at = time.monotonic()
     async with ClientSession() as session:
         pages_count = await get_pages_count(session, url)
