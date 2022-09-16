@@ -1,94 +1,84 @@
-# search: https://www.otomoto.pl/osobowe/bmw/x3?search[order]=created_at_first:desc&page=3
-#
-# 6100851901 https://www.otomoto.pl/oferta/bmw-seria-5-2xm-pakiet-x-drive-zawiesz-pneumatyczne-hedup-webasto-alcantara-fv23-ID6ESyh7.html
-# https://www.otomoto.pl/api/v1/ad/6100851901
-#
-# phone number
-# 6098801334 https://www.otomoto.pl/oferta/bmw-seria-4-420d-f32-sport-line-polski-salon-ID6EJVPs.html
-# 6EJVPs
-# curl https://www.otomoto.pl/ajax/misc/contact/all_phones/6ESyh7/
-#
-#
-# wiecej od tego uzytkownika:
-# https://www.otomoto.pl/api/v1/recommenders/ad/6100851901
-
 import asyncio
-import itertools
 import time
-from typing import Union, Tuple
-from aiohttp import ClientSession, web
-from lxml.html import fromstring
+from aiohttp import web
+
+from models import Advertisement, Advertisement_Pydantic
+from tortoise.contrib.aiohttp import register_tortoise
+from tortoise.queryset import Q
+
+from scrappers.otoscrapper import gather_ads_data
 
 
-AD_JSON_URL = "https://www.otomoto.pl/api/v1/ad/{}/"
-SSL = True
+async def dict_to_model(advertisement_dict: dict, brand: str, model: str) -> dict:
+    id_ = next(iter(advertisement_dict))
+    d = advertisement_dict[id_]
+    params = d["params"]
+    try:
+        advert, crated = await Advertisement.get_or_create(
+            adv_id=int(id_),
+            year=int(params["year"]["value"]),
+            mileage=int(params["mileage"]["value"]),
+            engine_capacity=int(params["engine_capacity"]["value"]),
+            fuel_type=params["fuel_type"]["value"],
+            price=float(params["price"]["price_raw"]),
+            url=d["url"],
+            title=d["title_full"],
+            brand=brand,
+            model=model,
+        )
+        print(f"Previously in db: {not crated} - {advert.title}")
+        advert_pydantic = await Advertisement_Pydantic.from_tortoise_orm(advert)
+        return advert_pydantic.dict()
+    except KeyError:
+        return {}
 
 
-def concatenate_lists(list_: Union[list, tuple]) -> list:
-    return list(itertools.chain.from_iterable(list_))
-
-
-async def get_pages_count(session: ClientSession, url: str) -> int:
-    async with session.get(url, ssl=SSL) as response:
-        text = await response.text()
-        return int(fromstring(text).xpath(
-            ".//ul[contains(@class, 'pagination-list')]/li/a/span")[-1].text)
-
-
-async def get_ids(session: ClientSession, url: str, pages_count: int) -> list:
-    tasks = list()
-    for page in range(1, pages_count + 1):
-        tasks.append(get_ids_from_page(session, f"{url}&page={page}"))
-
-    results = await asyncio.gather(*tasks)
-    return concatenate_lists(results)
-
-
-async def get_ids_from_page(session: ClientSession, page_url: str) -> list:
-    async with session.get(page_url, ssl=SSL) as response:
-        # print(r.status, page_url)
-        html = await response.text()
-        return [a.attrib["id"] for a in fromstring(html).xpath(
-            "//article[@id]") if a.attrib["id"].isnumeric()]
-
-
-async def get_advertisements_data(session: ClientSession, ids: list) -> tuple:
-    tasks = list()
-    for id_ in ids:
-        tasks.append(get_single_ad_data(session, id_))
-
-    results = await asyncio.gather(*tasks)
-    return results
-
-
-async def get_single_ad_data(session: ClientSession, id_: str) -> dict:
-    async with session.get(AD_JSON_URL.format(id_), ssl=SSL) as response:
-        # print(r.status, id_)
-        json = await response.json()
-        return json
-
-
-async def gather_ads_data(url: str) -> Tuple[dict]:
-    started_at = time.monotonic()
-    async with ClientSession() as session:
-        pages_count = await get_pages_count(session, url)
-        ids = await get_ids(session, url, pages_count)
-        print(f"For {url} collected {len(ids)} ids")
-        results = await get_advertisements_data(session, ids)
-    print(f"Took: {time.monotonic() - started_at}")
-    return results
-
-
-async def handle_get(request):
+async def handle_scrap_url(request):
     loop = asyncio.get_event_loop()
-    # url = f"https://www.otomoto.pl{request.rel_url}"
     url = f"https://www.otomoto.pl{request.path}"
     print(f"Proceeding {url}")
-    data = await loop.create_task(gather_ads_data(url))
-    return web.json_response(data)
+    brand = request.match_info.get("brand")
+    model = request.match_info.get("model")
 
+    data = await loop.create_task(gather_ads_data(url))
+
+    started_at = time.monotonic()
+    tasks = [dict_to_model(d, brand, model) for d in data]
+    jsons = await asyncio.gather(*tasks)
+    print(f"Adding to db took: {time.monotonic() - started_at}")
+    return web.json_response(jsons)
+
+
+async def handle_get_cars(request):
+    brand = request.rel_url.query.get("brand")
+    model = request.rel_url.query.get("model")
+    year = request.rel_url.query.get("year")
+    price_lte = request.rel_url.query.get("price[lte]")
+    price_gte = request.rel_url.query.get("price[gte]")
+    comparables = {"price__lte": price_lte, "price__gte": price_gte}
+    queries = [Q(brand=brand), Q(model=model), Q(year=year)]
+
+    comparable_parameters = {k: v for k, v in comparables.items() if v}
+    query_parameters = [q for q in queries if next(iter(q.filters.values()))]
+
+    adverts = await Advertisement.filter(*query_parameters, **comparable_parameters)
+    if not adverts:
+        return web.json_response({})
+    print(f"Collected {len(adverts)}")
+    tasks = [Advertisement_Pydantic.from_tortoise_orm(advert) for advert in adverts]
+    adverts_pydantic = await asyncio.gather(*tasks)
+
+    return web.json_response([a.dict() for a in adverts_pydantic])
+
+
+app = web.Application()
+app.add_routes(
+    [
+        web.get("/osobowe/{brand}/{model}", handle_scrap_url),
+        web.get("/cars", handle_get_cars),
+    ]
+)
+register_tortoise(app, db_url="sqlite://db.sqlite3", modules={"models": ["models"]}, generate_schemas=True)
 
 if __name__ == "__main__":
-    app = web.Application()
-    app.add_routes([web.get("/osobowe/{brand}/{model}", handle_get)])
     web.run_app(app)
