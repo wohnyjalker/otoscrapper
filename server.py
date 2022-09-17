@@ -14,14 +14,6 @@ from scrappers.otoscrapper import gather_ads_data
 logger = logging.getLogger()
 
 
-def log_request(func):
-    async def wrapper(request):
-        logger.info(f"{request.remote}")
-        return await func(request)
-
-    return wrapper
-
-
 async def handle_scrap_url(request) -> Response:
     loop = asyncio.get_event_loop()
     url = f"https://www.otomoto.pl{request.path}"
