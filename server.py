@@ -15,6 +15,7 @@ logger = logging.getLogger()
 
 
 async def handle_scrap_url(request) -> Response:
+    started_at = time.monotonic()
     loop = asyncio.get_event_loop()
     url = f"https://www.otomoto.pl{request.path}"
     logger.info(f"Proceeding {url}")
@@ -22,9 +23,8 @@ async def handle_scrap_url(request) -> Response:
     model = request.match_info.get("model")
 
     data = await loop.create_task(gather_ads_data(url))
-    started_at = time.monotonic()
-    tasks = [dict_to_model(d, brand, model) for d in data]
-    jsons = await asyncio.gather(*tasks)
+    jsons = await asyncio.gather(*[dict_to_model(d, brand, model) for d in data])
+
     logger.info(f"Adding to db took: {time.monotonic() - started_at}")
     return web.json_response(jsons)
 
@@ -34,10 +34,10 @@ async def handle_get_cars(request) -> Response:
     adverts = await Advertisement.filter(*query_parameters, **comparable_parameters)
     if not adverts:
         return web.json_response({})
-    logger.info(f"Collected {len(adverts)}")
     tasks = [Advertisement_Pydantic.from_tortoise_orm(advert) for advert in adverts]
     adverts_pydantic = await asyncio.gather(*tasks)
 
+    logger.info(f"Collected {len(adverts)}")
     return web.json_response([a.dict() for a in adverts_pydantic])
 
 
