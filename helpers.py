@@ -8,8 +8,7 @@ AdvertisementQuerySet = tuple[list, dict]
 logger = getLogger(__name__)
 
 
-def map_query_to_advertisement_queryset(
-        request: aiohttp.request) -> AdvertisementQuerySet:
+def map_query_to_advertisement_queryset(request: aiohttp.request) -> AdvertisementQuerySet:
     brand = request.rel_url.query.get("brand")
     model = request.rel_url.query.get("model")
     year = request.rel_url.query.get("year")
@@ -40,8 +39,7 @@ async def dict_to_model(advertisement_dict: dict, brand: str, model: str) -> dic
             brand=brand,
             model=model,
         )
-        logger.info(
-            f"Previously in db: {not crated} - {advert.adv_id} {advert.title}")
+        logger.info(f"Previously in db: {not crated} - {advert.adv_id} {advert.title}")
         advert_pydantic = await Advertisement_Pydantic.from_tortoise_orm(advert)
         return advert_pydantic.dict()
     except KeyError:
