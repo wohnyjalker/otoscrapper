@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import time
 
 import aiohttp.web
@@ -50,9 +51,8 @@ app.add_routes(
         web.get("/cars", handle_get_cars),
     ]
 )
-# register_tortoise(app, db_url="sqlite://db.sqlite3", modules={"models": ["models"]}, generate_schemas=True)
 register_tortoise(
-   app, db_url="postgres://postgres:postgres@db:5432/postgres", modules={"models": ["models"]}, generate_schemas=True
+   app, db_url=os.getenv("DATABASE_URL", "sqlite://db.sqlite3"), modules={"models": ["models"]}, generate_schemas=True
 )
 
 if __name__ == "__main__":
