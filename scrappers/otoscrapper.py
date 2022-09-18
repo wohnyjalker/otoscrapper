@@ -43,11 +43,8 @@ async def get_pages_count(session: ClientSession, url: str) -> int:
 
 
 async def get_ids(session: ClientSession, url: str, pages_count: int) -> list:
-    tasks = list()
-    for page in range(1, pages_count + 1):
-        tasks.append(get_ids_from_page(session, f"{url}?page={page}"))
-    results = await asyncio.gather(*tasks)
-    return concatenate_lists(results)
+    tasks = [get_ids_from_page(session, f"{url}?page={page}") for page in range(1 ,pages_count+1)]
+    return concatenate_lists(await asyncio.gather(*tasks))
 
 
 async def get_ids_from_page(session: ClientSession, page_url: str) -> list:
@@ -60,18 +57,12 @@ async def get_ids_from_page(session: ClientSession, page_url: str) -> list:
 
 
 async def get_advertisements_data(session: ClientSession, ids: list) -> tuple:
-    tasks = list()
-    for id_ in ids:
-        tasks.append(get_single_ad_data(session, id_))
-
-    results = await asyncio.gather(*tasks)
-    return results
+    return await asyncio.gather(*[get_single_ad_data(session, idx) for idx in ids])
 
 
 async def get_single_ad_data(session: ClientSession, id_: str) -> dict:
     async with session.get(AD_JSON_URL.format(id_), ssl=SSL) as response:
-        json = await response.json()
-        return json
+        return await response.json()
 
 
 async def gather_ads_data(brand: str, model: str) -> Tuple[dict]:
