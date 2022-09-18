@@ -22,6 +22,7 @@ from aiohttp import ClientSession
 from lxml.html import fromstring
 from user_agent import generate_user_agent
 
+
 PAGE_URL = "https://www.otomoto.pl/osobowe/{}/{}"
 AD_JSON_URL = "https://www.otomoto.pl/api/v1/ad/{}/"
 SSL = True
