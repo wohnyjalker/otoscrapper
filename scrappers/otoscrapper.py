@@ -23,6 +23,7 @@ from lxml.html import fromstring
 from user_agent import generate_user_agent
 
 
+PAGE_URL = "https://www.otomoto.pl/osobowe/{}/{}"
 AD_JSON_URL = "https://www.otomoto.pl/api/v1/ad/{}/"
 SSL = True
 logger = getLogger(__name__)
@@ -73,8 +74,10 @@ async def get_single_ad_data(session: ClientSession, id_: str) -> dict:
         return json
 
 
-async def gather_ads_data(url: str) -> Tuple[dict]:
+async def gather_ads_data(brand: str, model: str) -> Tuple[dict]:
+    url = PAGE_URL.format(brand, model)
     headers = {"User-Agent": generate_user_agent()}
+    logger.info(f"Proceeding {url}")
     started_at = time.monotonic()
     async with ClientSession(headers=headers) as session:
         pages_count = await get_pages_count(session, url)
