@@ -3,7 +3,6 @@ import logging
 import os
 import time
 
-import aiohttp.web
 from aiohttp import web
 from aiohttp.web_response import Response
 from tortoise.contrib.aiohttp import register_tortoise
@@ -21,9 +20,9 @@ async def handle_scrap_url(request) -> Response:
     data = await request.json()
     brand, model = data.get("brand"), data.get("model")
     if not brand:
-        raise aiohttp.web.HTTPBadRequest(reason="missing brand")
+        raise web.HTTPBadRequest(reason="missing brand")
     if not model:
-        raise aiohttp.web.HTTPBadRequest(reason="missing model")
+        raise web.HTTPBadRequest(reason="missing model")
     ads_data = await loop.create_task(gather_ads_data(brand, model))
     started_at = time.monotonic()
     jsons_res = await asyncio.gather(*[dict_to_model(a, brand, model) for a in ads_data])
