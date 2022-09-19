@@ -43,7 +43,7 @@ async def get_pages_count(session: ClientSession, url: str) -> int:
 
 
 async def get_ids(session: ClientSession, url: str, pages_count: int) -> list:
-    tasks = [get_ids_from_page(session, f"{url}?page={page}") for page in range(1 ,pages_count+1)]
+    tasks = [get_ids_from_page(session, f"{url}?page={page}") for page in range(1, pages_count + 1)]
     return concatenate_lists(await asyncio.gather(*tasks))
 
 

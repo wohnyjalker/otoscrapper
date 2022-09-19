@@ -7,7 +7,7 @@ from aiohttp import web
 from aiohttp.web_response import Response
 from tortoise.contrib.aiohttp import register_tortoise
 
-from helpers import dict_to_model, map_query_to_advertisement_queryset
+from helpers import dict_to_model, map_query_to_advertisement_queryset, log_execution_time
 from models import Advertisement, Advertisement_Pydantic
 from scrappers.otoscrapper import gather_ads_data
 
@@ -15,6 +15,7 @@ from scrappers.otoscrapper import gather_ads_data
 logger = logging.getLogger("server")
 
 
+@log_execution_time
 async def handle_scrap_url(request) -> Response:
     loop = asyncio.get_event_loop()
     data = await request.json()
@@ -30,13 +31,13 @@ async def handle_scrap_url(request) -> Response:
     return web.json_response(jsons_res)
 
 
+@log_execution_time
 async def handle_get_cars(request) -> Response:
     query_parameters, comparable_parameters = map_query_to_advertisement_queryset(request)
     adverts = await Advertisement.filter(*query_parameters, **comparable_parameters)
     if not adverts:
         return web.json_response({})
-    tasks = [Advertisement_Pydantic.from_tortoise_orm(advert) for advert in adverts]
-    adverts_pydantic = await asyncio.gather(*tasks)
+    adverts_pydantic = await asyncio.gather(*map(Advertisement_Pydantic.from_tortoise_orm, adverts))
 
     logger.info(f"Collected {len(adverts)}")
     return web.json_response([a.dict() for a in adverts_pydantic])
