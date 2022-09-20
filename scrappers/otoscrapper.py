@@ -65,32 +65,6 @@ async def get_single_ad_data(session: ClientSession, id_: str) -> dict:
         return await response.json()
 
 
-async def scrap_advertisements_ids(url: str) -> list:
-    headers = {"User-Agent": generate_user_agent()}
-    logger.info(f"Proceeding {url}")
-    async with ClientSession(headers=headers) as session:
-        pages_count = await scrap_pages_count(session, url)
-        ids = await scrap_ids(session, url, pages_count)
-    return ids
-
-
-async def gather_advertisements_json_data(ids: list) -> Tuple[dict]:
-    headers = {"User-Agent": generate_user_agent()}
-    async with ClientSession(headers=headers) as session:
-        return await get_advertisements_data(session, ids)
-
-
-# async def gather_ads_data(brand: str, model: str, excluded_ads_ids: list) -> Tuple[dict]:
-#     url = PAGE_URL.format(brand, model)
-#     started_at = time.monotonic()
-#     logger.info(f"Proceeding {url}")
-#
-#     ids = await scrap_advertisements_ids(url)
-#     data = await gather_advertisements_json_data(ids)
-#
-#     logger.info(f"Took: {time.monotonic() - started_at}")
-#     return data
-
 async def gather_advertisements_data(brand: str, model: str, excluded_ids: Optional[list] = None) -> Optional[Tuple[dict]]:
     url = PAGE_URL.format(brand, model)
     headers = {"User-Agent": generate_user_agent()}
