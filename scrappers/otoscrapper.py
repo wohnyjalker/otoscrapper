@@ -16,7 +16,7 @@
 import asyncio
 import itertools
 import time
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 from logging import getLogger
 from aiohttp import ClientSession
 from lxml.html import fromstring
@@ -33,7 +33,7 @@ def concatenate_lists(list_: Union[list, tuple]) -> list:
     return list(itertools.chain.from_iterable(list_))
 
 
-async def get_pages_count(session: ClientSession, url: str) -> int:
+async def scrap_pages_count(session: ClientSession, url: str) -> int:
     async with session.get(url, ssl=SSL) as response:
         text = await response.text()
         pages = fromstring(text).xpath(".//ul[contains(@class, 'pagination-list')]/li/a/span")
@@ -42,12 +42,12 @@ async def get_pages_count(session: ClientSession, url: str) -> int:
         return int(pages[-1].text)
 
 
-async def get_ids(session: ClientSession, url: str, pages_count: int) -> list:
-    tasks = [get_ids_from_page(session, f"{url}?page={page}") for page in range(1 ,pages_count+1)]
+async def scrap_ids(session: ClientSession, url: str, pages_count: int) -> list:
+    tasks = [scrap_ids_from_page(session, f"{url}?page={page}") for page in range(1, pages_count+1)]
     return concatenate_lists(await asyncio.gather(*tasks))
 
 
-async def get_ids_from_page(session: ClientSession, page_url: str) -> list:
+async def scrap_ids_from_page(session: ClientSession, page_url: str) -> list:
     async with session.get(page_url, ssl=SSL) as response:
         return [
             a.attrib["id"]
@@ -56,7 +56,7 @@ async def get_ids_from_page(session: ClientSession, page_url: str) -> list:
         ]
 
 
-async def get_advertisements_data(session: ClientSession, ids: list) -> tuple:
+async def get_advertisements_data(session: ClientSession, ids: Union[list, set]) -> tuple:
     return await asyncio.gather(*[get_single_ad_data(session, idx) for idx in ids])
 
 
@@ -65,15 +65,20 @@ async def get_single_ad_data(session: ClientSession, id_: str) -> dict:
         return await response.json()
 
 
-async def gather_ads_data(brand: str, model: str) -> Tuple[dict]:
+async def gather_advertisements_data(brand: str, model: str, excluded_ids: Optional[list] = None) -> Optional[Tuple[dict]]:
     url = PAGE_URL.format(brand, model)
     headers = {"User-Agent": generate_user_agent()}
     logger.info(f"Proceeding {url}")
     started_at = time.monotonic()
     async with ClientSession(headers=headers) as session:
-        pages_count = await get_pages_count(session, url)
-        ids = await get_ids(session, url, pages_count)
+        pages_count = await scrap_pages_count(session, url)
+        ids = await scrap_ids(session, url, pages_count)
+
         logger.info(f"For {url} collected {len(ids)} ids")
-        results = await get_advertisements_data(session, ids)
+        ids_to_process = set(map(int, ids)) - set(map(int, excluded_ids))
+        if not ids_to_process:
+            return
+        logger.info(f"To process {len(ids_to_process)} items: {ids_to_process}")
+        results = await get_advertisements_data(session, ids_to_process)
     logger.info(f"Took: {time.monotonic() - started_at}")
     return results
