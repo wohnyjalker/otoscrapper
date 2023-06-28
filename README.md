@@ -3,30 +3,42 @@ Simple scrapper created to practice async programming
 
 ## Setup
 
-0. Run docker-compose:
+### Using docker-compose
 
+1. Copy the .env.example file as .env:
+   ```bash
+    cp .env.example .env
+    ```
+
+2. Run docker-compose:
     ```bash
     docker-compose up
     ```
-    or
+   
+### Without docker-compose
 
-1. Create and activate virtual environment:
+1. Copy the .env.example file as .env:
+   ```bash
+    cp .env.example .env
+    ```
+   
+2. Create and activate virtual environment:
    ```bash
    python3 -m venv venv
    . venv/bin/activate
    ```
-
-2. Install the required dependencies:
+   
+3. Install the required dependencies:
     ```bash
     pip install -r requirements.txt
     ```
-
-3. Copy the .env.example file as .env:
+   
+4. Copy the .env.example file as .env:
     ```bash
     cp .env.example .env
     ```
 
-4. Start server:
+5. Start server:
     ```bash
     python server.py
     ```
