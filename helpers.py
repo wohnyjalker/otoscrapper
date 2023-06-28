@@ -54,3 +54,20 @@ def log_execution_time(func):
         logger.info(f"{func.__name__} took {time.monotonic() - started_at}")
         return f
     return wrapper
+
+
+async def add_to_db(advertisement_dict: dict, brand: str, model: str):
+    idx = next(iter(advertisement_dict))
+    params = advertisement_dict[idx]["params"]
+    return await Advertisement(
+        adv_id=int(idx),
+        year=int(params["year"]["value"]) if params.get("year") else None,
+        mileage=int(params["mileage"]["value"]) if params.get("mileage") else None,
+        engine_capacity=int(params["engine_capacity"]["value"]) if params.get("engine_capacity") else None,
+        fuel_type=params["fuel_type"]["value"] if params.get("fuel_type") else None,
+        price=float(params["price"]["price_raw"]) if params.get("price") else None,
+        url=advertisement_dict[idx]["url"],
+        title=advertisement_dict[idx]["title_full"],
+        brand=brand,
+        model=model,
+    )
