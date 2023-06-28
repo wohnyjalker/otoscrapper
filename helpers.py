@@ -1,3 +1,4 @@
+import time
 from logging import getLogger
 import aiohttp
 from tortoise.queryset import Q
@@ -44,6 +45,15 @@ async def dict_to_model(advertisement_dict: dict, brand: str, model: str) -> dic
         return advert_pydantic.dict()
     except KeyError:
         return {}
+
+
+def log_execution_time(func):
+    async def wrapper(*args, **kwargs):
+        started_at = time.monotonic()
+        f = await func(*args, **kwargs)
+        logger.info(f"{func.__name__} took {time.monotonic() - started_at}")
+        return f
+    return wrapper
 
 
 async def add_to_db(advertisement_dict: dict, brand: str, model: str):

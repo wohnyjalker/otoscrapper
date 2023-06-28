@@ -8,7 +8,7 @@ from aiohttp.web_response import Response
 from tortoise.contrib.aiohttp import register_tortoise
 from tortoise.queryset import Q
 
-from helpers import map_query_to_advertisement_queryset, add_to_db
+from helpers import map_query_to_advertisement_queryset, add_to_db, log_execution_time
 from models import Advertisement, Advertisement_Pydantic
 from scrappers.otoscrapper import gather_advertisements_data
 
@@ -21,6 +21,7 @@ def response_dict(message: str, started_at: TimeMonotonic) -> dict:
     return {"message": message, "operation_time": time.monotonic() - started_at}
 
 
+@log_execution_time
 async def handle_scrap_url(request) -> Response:
     started_at = time.monotonic()
     request_json = await request.json()
@@ -47,30 +48,17 @@ async def handle_scrap_url(request) -> Response:
     )
 
 
+@log_execution_time
 async def handle_get_cars(request) -> Response:
     query_parameters, comparable_parameters = map_query_to_advertisement_queryset(request)
     adverts = await Advertisement.filter(*query_parameters, **comparable_parameters)
 
     if not adverts:
         return web.json_response({})
-
-    tasks = [Advertisement_Pydantic.from_tortoise_orm(advert) for advert in adverts]
-    adverts_pydantic = await asyncio.gather(*tasks)
+    adverts_pydantic = await asyncio.gather(*map(Advertisement_Pydantic.from_tortoise_orm, adverts))
 
     logger.info(f"Collected {len(adverts)}")
     return web.json_response([a.dict() for a in adverts_pydantic])
-
-
-async def handle_test(request):
-    from tortoise.queryset import Q
-
-    ads = await Advertisement.filter(Q(brand="audi") & Q(model="90")).values("adv_id")
-    ids = [int(a["adv_id"]) for a in ads]
-    # x = await Advertisement.filter(adv_id__in=[6101097802, 6100795853]).values("adv_id")
-    # adverts_pydantic = await asyncio.gather(*map(Advertisement_Pydantic.from_tortoise_orm, x))
-    # print(x)
-    # return web.json_response([a.dict() for a in adverts_pydantic])
-    return web.json_response(ids)
 
 
 app = web.Application()
@@ -79,7 +67,6 @@ app.add_routes(
     [
         web.post("/scrap", handle_scrap_url),
         web.get("/cars", handle_get_cars),
-        web.get("/test", handle_test),
     ]
 )
 register_tortoise(
